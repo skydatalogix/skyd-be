@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  skyd-be:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: skyd-be
+    ports:
+      - "9067:9067"

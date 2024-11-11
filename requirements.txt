@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+geoalchemy2
+shapely
+pydantic
+alembic
+psycopg2-binary
+geoalchemy2
+python-multipart
