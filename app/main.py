@@ -6,13 +6,12 @@ from shapely.geometry import Polygon as ShapelyPolygon, Point, shape, MultiPolyg
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import SessionLocal, get_db
-from app.dto import PolygonRequest, GeoJSONIncidentSchema, FindPlacesRequest, Coordinate, Polygon
+from app.dto import FindPlacesRequest, Coordinate, Polygon
+from app.enums import GeometryType
 from app.models import LocalGovernmentArea, Incident, IncidentPolygon
-from typing import List, Dict
 
 
 app = FastAPI(debug=True)
-
 
 @app.get("/health/")
 def isHealthy():
@@ -106,57 +105,10 @@ async def import_incident(lga_id: int, type: str, json_file: UploadFile = File(.
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error: {str(e)}")
 
-# @app.get("/findPlaces/coordinates")
-# async def findLgaByCoordinates(latitude: float, longitude: float, db: SessionLocal = Depends(get_db)):
-#     point = from_shape(Point(longitude, latitude), srid=4326)
-#
-#     lga = (
-#         db.query(LocalGovernmentArea)
-#         .filter(LocalGovernmentArea.polygon.ST_Contains(point))
-#         .first()
-#     )
-#
-#     if not lga:
-#         raise HTTPException(status_code=404, detail="Local Government Area not found for the given coordinates")
-#
-#     return JSONResponse(content={"id": lga.id, "name": lga.name, "data": {} }, status_code=200)
-#
-# @app.post("/findPlaces/polygon")
-# async def findLgaByPolygon(request: PolygonRequest, db: SessionLocal = Depends(get_db)):
-#     """
-#     API endpoint to find all Local Government Areas that intersect with the given polygon coordinates.
-#     - request: A JSON object with a 'coordinates' key containing a list of coordinates with 'latitude' and 'longitude'.
-#     """
-#
-#     # Convert the list of Coordinate objects to a list of (longitude, latitude) tuples
-#     polygon_coords = [(point.longitude, point.latitude) for point in request.coordinates]
-#
-#     # Create a Shapely Polygon using the longitude/latitude coordinates
-#     polygon = ShapelyPolygon(polygon_coords)
-#
-#     # Convert the Shapely Polygon to a format compatible with PostGIS
-#     geo_polygon = from_shape(polygon, srid=4326)
-#
-#     # Query for all LocalGovernmentAreas that intersect with the input polygon
-#     lgas = (
-#         db.query(LocalGovernmentArea)
-#         .filter(LocalGovernmentArea.polygon.ST_Intersects(geo_polygon))
-#         .all()
-#     )
-#
-#     if not lgas:
-#         raise HTTPException(status_code=404, detail="No Local Government Areas found for the given polygon")
-#
-#     # Format the response with found LGA data
-#     result = [{"id": lga.id, "name": lga.name, "data": {}} for lga in lgas]
-#
-#     return JSONResponse(content={"areas": result}, status_code=200)
-
-
 @app.post("/findPlaces")
 async def find_lga_by_geometry(request: FindPlacesRequest, db: SessionLocal = Depends(get_db)):
     try:
-        if request.type == "Point":
+        if request.type == GeometryType.POINT:
             # If the type is Point, we expect geometry to be a Coordinate object
             if not isinstance(request.geometry, Coordinate):
                 raise HTTPException(status_code=400, detail="For type 'Point', geometry must be a Coordinate")
@@ -172,7 +124,7 @@ async def find_lga_by_geometry(request: FindPlacesRequest, db: SessionLocal = De
 
             return JSONResponse(content={"id": lga.id, "name": lga.name, "data": {}}, status_code=200)
 
-        elif request.type == "Polygon":
+        elif request.type == GeometryType.POLYGON:
             # If the type is Polygon, we expect geometry to be a Polygon object
             if not isinstance(request.geometry, Polygon):
                 raise HTTPException(status_code=400, detail="For type 'Polygon', geometry must be a Polygon")

@@ -1,7 +1,11 @@
-from typing import List, Dict, Any, Union
-from abc import ABC, abstractmethod
+from typing import List, Union
+from abc import ABC
 
 from pydantic import BaseModel
+
+from app.enums import GeometryType
+
+
 # Abstract Base Class
 # Abstract Geometry class
 class Geometry(ABC, BaseModel):
@@ -18,15 +22,5 @@ class Polygon(Geometry):
 
 # FindPlacesRequest class
 class FindPlacesRequest(BaseModel):
-    type: str
+    type: GeometryType
     geometry: Union[Coordinate, Polygon]
-
-
-# Define a model for the request body, which includes a list of coordinates
-class PolygonRequest(BaseModel):
-    coordinates: List[Coordinate]
-
-class GeoJSONIncidentSchema(BaseModel):
-    description: str
-    year: int
-    features: List[Dict[str, Any]]  # List of GeoJSON features
