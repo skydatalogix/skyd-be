@@ -1,12 +1,14 @@
 import json
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from geoalchemy2.functions import ST_Intersects, ST_GeomFromText
 from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon as ShapelyPolygon, Point, shape, MultiPolygon
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import SessionLocal, get_db
-from app.dto import FindPlacesRequest, Coordinate, Polygon
+from app.dto import FindPlacesRequest, Coordinate, Polygon, FindIncidentsInPolygon
 from app.enums import GeometryType
 from app.models import LocalGovernmentArea, Incident, IncidentPolygon
 
@@ -153,3 +155,40 @@ async def find_lga_by_geometry(request: FindPlacesRequest, db: SessionLocal = De
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+# Utility function to convert to WKT polygon
+def convert_to_wkt_polygon(polygon: Polygon) -> str:
+    coordinates = [(coord.longitude, coord.latitude) for coord in polygon.coordinates]
+    shapely_polygon = ShapelyPolygon(coordinates)
+    return shapely_polygon.wkt
+
+
+# API endpoint
+@app.post("/find-incidents")
+def find_incidents_in_polygon(polygon_data: FindIncidentsInPolygon, db: SessionLocal = Depends(get_db)):
+    # Convert incoming coordinates to a Shapely Polygon
+    try:
+        polygon_coords = [(coord.longitude, coord.latitude) for coord in polygon_data.geometry.coordinates]
+        polygon = ShapelyPolygon(polygon_coords)
+        if not polygon.is_valid:
+            raise ValueError("Invalid polygon geometry")
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Convert Shapely Polygon to WKT format compatible with PostGIS
+    polygon_wkt = from_shape(polygon, srid=4326)
+
+    # Query database for IncidentPolygon records that intersect with the input polygon
+    results = (
+        db.query(IncidentPolygon)
+        .filter(func.ST_Intersects(IncidentPolygon.polygon, polygon_wkt))
+        .all()
+    )
+
+    return {
+        "incident_polygons": [
+            {"id": result.id, "incident_id": result.incident_id, "polygon": result.polygon.wkt}
+            for result in results
+        ]
+    }

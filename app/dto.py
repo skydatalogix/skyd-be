@@ -24,3 +24,7 @@ class Polygon(Geometry):
 class FindPlacesRequest(BaseModel):
     type: GeometryType
     geometry: Union[Coordinate, Polygon]
+
+class FindIncidentsInPolygon(BaseModel):
+    type: GeometryType
+    geometry: Polygon
