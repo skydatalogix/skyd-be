@@ -2,8 +2,8 @@ import json
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from geoalchemy2.functions import ST_Intersects, ST_GeomFromText
-from geoalchemy2.shape import from_shape
-from shapely.geometry import Polygon as ShapelyPolygon, Point, shape, MultiPolygon
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import Polygon as ShapelyPolygon, Point, shape, MultiPolygon, mapping
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi.middleware.cors import CORSMiddleware
@@ -181,7 +181,6 @@ def find_incidents_in_polygon(polygon_data: FindIncidentsInPolygon, db: SessionL
         polygon = ShapelyPolygon(polygon_coords)
         if not polygon.is_valid:
             raise ValueError("Invalid polygon geometry")
-
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -194,10 +193,23 @@ def find_incidents_in_polygon(polygon_data: FindIncidentsInPolygon, db: SessionL
         .filter(func.ST_Intersects(IncidentPolygon.polygon, polygon_wkt))
         .all()
     )
+    #
+    # if not results:
+    #     raise HTTPException(status_code=404, detail="No incidents found in the given polygon")
 
-    return {
-        "incident_polygons": [
-            {"id": result.id, "incident_id": result.incident_id, "polygon": result.polygon.wkt}
-            for result in results
-        ]
-    }
+    # Convert PostGIS polygon to GeoJSON
+    response_data = []
+    for result in results:
+        # Convert PostGIS Geometry to Shapely object
+        shape = to_shape(result.polygon)
+        # Convert Shapely object to GeoJSON
+        geojson_polygon = mapping(shape)
+        response_data.append({
+            "id": result.id,
+            "incident_id": result.incident_id,
+            "incident_type": result.incident.type,
+            "incident_year": result.incident.year,
+            "polygon": geojson_polygon  # GeoJSON format
+        })
+
+    return {"incident_polygons": response_data}
