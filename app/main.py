@@ -6,6 +6,7 @@ from geoalchemy2.shape import from_shape
 from shapely.geometry import Polygon as ShapelyPolygon, Point, shape, MultiPolygon
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import SessionLocal, get_db
 from app.dto import FindPlacesRequest, Coordinate, Polygon, FindIncidentsInPolygon
@@ -14,6 +15,14 @@ from app.models import LocalGovernmentArea, Incident, IncidentPolygon
 
 
 app = FastAPI(debug=True)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins (use specific domains in production)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 @app.get("/health/")
 def isHealthy():
