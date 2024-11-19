@@ -37,20 +37,26 @@ async def import_lga(file: UploadFile = File(...)):
     for item in data:
         try:
             name = f"{item['lga_name'][0]}, {item['ste_name'][0]}, {item['lga_area_code']}"
-            coordinates = item["geo_shape"]["geometry"]["coordinates"][0]
-            polygon = ShapelyPolygon(coordinates)
+            geo_json = item["geo_shape"]["geometry"]
+
+            # Use Shapely to handle both Polygon and MultiPolygon
+            geometry = shape(geo_json)
+            if not geometry.is_valid:
+                raise ValueError("Invalid geometry")
+
             new_area = LocalGovernmentArea(
                 name=name,
-                polygon=f'SRID=4326;{polygon.wkt}'
+                polygon=f'SRID=4326;{geometry.wkt}'
             )
             db.add(new_area)
-        except (KeyError, IndexError) as e:
+        except (KeyError, IndexError, ValueError) as e:
             db.rollback()
-            raise HTTPException(status_code=400, detail=f"Invalid data format: {e}")
+            raise HTTPException(status_code=400, detail=f"Invalid data format or geometry: {e}")
 
     db.commit()
     db.close()
     return JSONResponse(content={"message": "Data uploaded successfully"}, status_code=200)
+
 @app.post("/data-injection/import-incident/{lga_id}/{type}")
 async def import_incident(lga_id: int, type: str, json_file: UploadFile = File(...), db: SessionLocal = Depends(get_db)):
     try:

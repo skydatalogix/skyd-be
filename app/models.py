@@ -11,7 +11,7 @@ class LocalGovernmentArea(Base):
     __tablename__ = 'local_government_areas'  # Corrected the typo and made it snake_case
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
-    polygon = Column(Geometry(geometry_type='POLYGON', srid=4326))
+    polygon = Column(Geometry(geometry_type='GEOMETRY', srid=4326))  # Updated to support both POLYGON and MULTIPOLYGON
 
     # Relationship to Incidents
     incidents = relationship('Incident', back_populates='local_government_area')
